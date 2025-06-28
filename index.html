@@ -54,6 +54,16 @@
   </div>
 
   <script>
+    // 設定のキャッシュキー
+    const CACHE_KEYS = ['jsonSelect','sortField','sortDir','pageSize'];
+
+    // ページ読み込み時に前回設定を復元
+    document.addEventListener('DOMContentLoaded', ()=>{
+      CACHE_KEYS.forEach(key=>{
+        const val = localStorage.getItem(key);
+        if(val && document.getElementById(key)) document.getElementById(key).value = val;
+      });
+    });
     const owner = 'sz4ljde221';
     const repo  = 'movielist';
     const dataPath = 'data';
