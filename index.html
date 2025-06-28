@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Filmarks 映画リスト</title>
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
+  <style>
+    img.poster { width: 50px; height: auto; }
+    table.dataTable td, table.dataTable th { text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Filmarks 映画リスト</h1>
+  <table id="movies" class="display" style="width:100%">
+    <thead>
+      <tr>
+        <th>ポスター</th>
+        <th>タイトル</th>
+        <th>評価</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- 動的に挿入 -->
+    </tbody>
+  </table>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <!-- DataTables JS -->
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      // JSON ファイル名を指定
+      var jsonFile = 'data/movies.json';
+
+      $.getJSON(jsonFile, function(data) {
+        var rows = data.movies.map(function(item) {
+          // ポスター画像
+          var imgHtml = item.image_url
+            ? '<a href="' + item.link + '" target="_blank"><img class="poster" src="' + item.image_url + '" alt="' + item.title + '"></a>'
+            : '';
+          // タイトル（リンク付き）
+          var titleHtml = item.link
+            ? '<a href="' + item.link + '" target="_blank">' + item.title + '</a>'
+            : item.title;
+          // 評価（数値／空文字）
+          var ratingVal = parseFloat(item.rating) || null;
+          var ratingHtml = ratingVal !== null ? ratingVal.toFixed(1) : '';
+
+          return [ imgHtml, titleHtml, ratingVal ];
+        });
+
+        $('#movies').DataTable({
+          data: rows,
+          columns: [
+            { title: 'ポスター', orderable: false },
+            { title: 'タイトル', orderable: true },
+            {
+              title: '評価',
+              orderable: true,
+              render: function(data, type) {
+                return type === 'display' && data !== null ? data.toFixed(1) : data;
+              }
+            }
+          ],
+          pageLength: 10,
+          lengthMenu: [ [10, 30, 50], [10, 30, 50] ],
+          order: [],    // デフォルトソートなし
+          language: {
+            lengthMenu: '_MENU_ 件表示',
+            info: '_START_ ～ _END_ / _TOTAL_ 件',
+            paginate: { next: '次へ', previous: '前へ' }
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
