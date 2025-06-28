@@ -55,20 +55,26 @@
   <div class="pagination" id="pagination"></div>
 
   <script>
+    const owner = 'sz4ljde221';
+    const repo = 'movielist';
+    const dataPath = 'data';
     let movies = [];
     let currentPage = 1;
 
-    // JSON一覧を取得
-    fetch('data/index.json')
+    // GitHub APIでdataフォルダ内のJSONファイルリストを取得
+    fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${dataPath}`)
       .then(res => res.json())
-      .then(list => {
+      .then(files => {
+        const jsonFiles = files
+          .filter(f => f.type === 'file' && f.name.endsWith('.json'))
+          .map(f => f.name)
+          .sort((a, b) => a < b ? 1 : -1); // 新しいファイル順
         const sel = document.getElementById('jsonSelect');
-        sel.innerHTML = list.map(name => `<option value="${name}">${name}</option>`).join('');
-        // 最初の選択で読み込み
-        loadData(sel.value);
-      }).catch(err => console.error('index.json 読み込み失敗', err));
+        sel.innerHTML = jsonFiles.map(name => `<option value="${name}">${name}</option>`).join('');
+        loadData(jsonFiles[0]);
+      })
+      .catch(err => console.error('GitHub API読み込み失敗', err));
 
-    // データ選択で再読み込み
     document.getElementById('jsonSelect').addEventListener('change', e => {
       currentPage = 1;
       loadData(e.target.value);
@@ -76,12 +82,13 @@
     document.getElementById('apply').addEventListener('click', () => { currentPage = 1; render(); });
 
     function loadData(filename) {
-      fetch(`data/${filename}`)
+      fetch(`${dataPath}/${filename}`)
         .then(res => res.json())
         .then(data => {
           movies = Array.isArray(data) ? data : (data.movies || []);
           render();
-        }).catch(err => console.error(filename + ' 読み込み失敗', err));
+        })
+        .catch(err => console.error(`${filename} 読み込み失敗`, err));
     }
 
     function render() {
