@@ -35,46 +35,50 @@
       // JSON ファイル名を指定
       var jsonFile = 'data/movies.json';
 
-      $.getJSON(jsonFile, function(data) {
-        var rows = data.movies.map(function(item) {
-          // ポスター画像
-          var imgHtml = item.image_url
-            ? '<a href="' + item.link + '" target="_blank"><img class="poster" src="' + item.image_url + '" alt="' + item.title + '"></a>'
-            : '';
-          // タイトル（リンク付き）
-          var titleHtml = item.link
-            ? '<a href="' + item.link + '" target="_blank">' + item.title + '</a>'
-            : item.title;
-          // 評価（数値／空文字）
-          var ratingVal = parseFloat(item.rating) || null;
-          var ratingHtml = ratingVal !== null ? ratingVal.toFixed(1) : '';
+      $.getJSON(jsonFile)
+        .done(function(data) {
+          // data がオブジェクトか配列かを判定し、映画リストを取得
+          var list = Array.isArray(data) ? data : (data.movies || []);
+          var rows = list.map(function(item) {
+            // ポスター画像
+            var imgHtml = item.image_url
+              ? '<a href="' + item.link + '" target="_blank"><img class="poster" src="' + item.image_url + '" alt="' + item.title + '"></a>'
+              : '';
+            // タイトル（リンク付き）
+            var titleHtml = item.link
+              ? '<a href="' + item.link + '" target="_blank">' + item.title + '</a>'
+              : item.title;
+            // 評価（数値／空文字）
+            var ratingVal = item.rating ? parseFloat(item.rating) : null;
+            return [ imgHtml, titleHtml, ratingVal ];
+          });
 
-          return [ imgHtml, titleHtml, ratingVal ];
-        });
-
-        $('#movies').DataTable({
-          data: rows,
-          columns: [
-            { title: 'ポスター', orderable: false },
-            { title: 'タイトル', orderable: true },
-            {
-              title: '評価',
-              orderable: true,
-              render: function(data, type) {
-                return type === 'display' && data !== null ? data.toFixed(1) : data;
+          $('#movies').DataTable({
+            data: rows,
+            columns: [
+              { title: 'ポスター', orderable: false },
+              { title: 'タイトル', orderable: true },
+              {
+                title: '評価',
+                orderable: true,
+                render: function(data, type) {
+                  return type === 'display' && data !== null ? data.toFixed(1) : data;
+                }
               }
+            ],
+            pageLength: 10,
+            lengthMenu: [ [10, 30, 50], [10, 30, 50] ],
+            order: [],    // デフォルトソートなし
+            language: {
+              lengthMenu: '_MENU_ 件表示',
+              info: '_START_ ～ _END_ / _TOTAL_ 件',
+              paginate: { next: '次へ', previous: '前へ' }
             }
-          ],
-          pageLength: 10,
-          lengthMenu: [ [10, 30, 50], [10, 30, 50] ],
-          order: [],    // デフォルトソートなし
-          language: {
-            lengthMenu: '_MENU_ 件表示',
-            info: '_START_ ～ _END_ / _TOTAL_ 件',
-            paginate: { next: '次へ', previous: '前へ' }
-          }
+          });
+        })
+        .fail(function(jqxhr, textStatus, error) {
+          console.error('JSON の読み込み失敗:', textStatus, error);
         });
-      });
     });
   </script>
 </body>
