@@ -4,82 +4,119 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Filmarks 映画リスト</title>
-  <!-- DataTables CSS -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
   <style>
-    img.poster { width: 50px; height: auto; }
-    table.dataTable td, table.dataTable th { text-align: center; }
+    body { font-family: sans-serif; margin: 0; padding: 1rem; }
+    .controls { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+    .controls select, .controls button { padding: 0.5rem; font-size: 1rem; }
+    .grid { display: grid; gap: 1rem; }
+    @media (min-width: 1024px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 768px) and (max-width: 1023px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 767px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    .card { border: 1px solid #ccc; border-radius: 4px; overflow: hidden; text-align: center; background: #fafafa; }
+    .card img { width: 100%; height: auto; display: block; }
+    .card .title { padding: 0.5rem; font-weight: bold; }
+    .card .rating { padding: 0.25rem 0; color: #555; }
+    .pagination { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .pagination button { padding: 0.5rem 1rem; }
   </style>
 </head>
 <body>
   <h1>Filmarks 映画リスト</h1>
-  <table id="movies" class="display" style="width:100%">
-    <thead>
-      <tr>
-        <th>ポスター</th>
-        <th>タイトル</th>
-        <th>評価</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- 動的に挿入 -->
-    </tbody>
-  </table>
 
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-  <!-- DataTables JS -->
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <div class="controls">
+    <label>データ選択:
+      <select id="jsonSelect">
+        <option>読み込み中…</option>
+      </select>
+    </label>
+    <label>ソート:
+      <select id="sortField">
+        <option value="title">タイトル</option>
+        <option value="rating">評価</option>
+      </select>
+    </label>
+    <label>方向:
+      <select id="sortDir">
+        <option value="asc">昇順</option>
+        <option value="desc">降順</option>
+      </select>
+    </label>
+    <label>表示件数:
+      <select id="pageSize">
+        <option value="10">10件</option>
+        <option value="30">30件</option>
+        <option value="50">50件</option>
+      </select>
+    </label>
+    <button id="apply">適用</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div class="pagination" id="pagination"></div>
+
   <script>
-    $(document).ready(function() {
-      // JSON ファイル名を指定
-      var jsonFile = 'data/movies.json';
+    let movies = [];
+    let currentPage = 1;
 
-      $.getJSON(jsonFile)
-        .done(function(data) {
-          // data がオブジェクトか配列かを判定し、映画リストを取得
-          var list = Array.isArray(data) ? data : (data.movies || []);
-          var rows = list.map(function(item) {
-            // ポスター画像
-            var imgHtml = item.image_url
-              ? '<a href="' + item.link + '" target="_blank"><img class="poster" src="' + item.image_url + '" alt="' + item.title + '"></a>'
-              : '';
-            // タイトル（リンク付き）
-            var titleHtml = item.link
-              ? '<a href="' + item.link + '" target="_blank">' + item.title + '</a>'
-              : item.title;
-            // 評価（数値／空文字）
-            var ratingVal = item.rating ? parseFloat(item.rating) : null;
-            return [ imgHtml, titleHtml, ratingVal ];
-          });
+    // JSON一覧を取得
+    fetch('data/index.json')
+      .then(res => res.json())
+      .then(list => {
+        const sel = document.getElementById('jsonSelect');
+        sel.innerHTML = list.map(name => `<option value="${name}">${name}</option>`).join('');
+        // 最初の選択で読み込み
+        loadData(sel.value);
+      }).catch(err => console.error('index.json 読み込み失敗', err));
 
-          $('#movies').DataTable({
-            data: rows,
-            columns: [
-              { title: 'ポスター', orderable: false },
-              { title: 'タイトル', orderable: true },
-              {
-                title: '評価',
-                orderable: true,
-                render: function(data, type) {
-                  return type === 'display' && data !== null ? data.toFixed(1) : data;
-                }
-              }
-            ],
-            pageLength: 10,
-            lengthMenu: [ [10, 30, 50], [10, 30, 50] ],
-            order: [],    // デフォルトソートなし
-            language: {
-              lengthMenu: '_MENU_ 件表示',
-              info: '_START_ ～ _END_ / _TOTAL_ 件',
-              paginate: { next: '次へ', previous: '前へ' }
-            }
-          });
-        })
-        .fail(function(jqxhr, textStatus, error) {
-          console.error('JSON の読み込み失敗:', textStatus, error);
-        });
+    // データ選択で再読み込み
+    document.getElementById('jsonSelect').addEventListener('change', e => {
+      currentPage = 1;
+      loadData(e.target.value);
     });
+    document.getElementById('apply').addEventListener('click', () => { currentPage = 1; render(); });
+
+    function loadData(filename) {
+      fetch(`data/${filename}`)
+        .then(res => res.json())
+        .then(data => {
+          movies = Array.isArray(data) ? data : (data.movies || []);
+          render();
+        }).catch(err => console.error(filename + ' 読み込み失敗', err));
+    }
+
+    function render() {
+      const field = document.getElementById('sortField').value;
+      const dir = document.getElementById('sortDir').value;
+      const size = parseInt(document.getElementById('pageSize').value);
+      const sorted = movies.slice().sort((a, b) => {
+        let v1 = a[field] ?? '';
+        let v2 = b[field] ?? '';
+        if (field === 'rating') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
+        return (v1 < v2 ? -1 : v1 > v2 ? 1 : 0) * (dir === 'asc' ? 1 : -1);
+      });
+      const total = sorted.length;
+      const pages = Math.ceil(total / size);
+      const start = (currentPage - 1) * size;
+      const pageItems = sorted.slice(start, start + size);
+
+      const grid = document.getElementById('grid');
+      grid.innerHTML = pageItems.map(item => {
+        const img = item.image_url ? `<a href="${item.link}" target="_blank"><img src="${item.image_url}" alt="${item.title}"></a>` : '';
+        const title = `<div class="title">${item.link ? `<a href="${item.link}" target="_blank">${item.title}</a>` : item.title}</div>`;
+        const rating = `<div class="rating">評価: ${item.rating || '-'} </div>`;
+        return `<div class="card">${img}${title}${rating}</div>`;
+      }).join('');
+
+      const pg = document.getElementById('pagination');
+      pg.innerHTML = '';
+      for (let i = 1; i <= pages; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === currentPage) btn.disabled = true;
+        btn.addEventListener('click', () => { currentPage = i; render(); });
+        pg.appendChild(btn);
+      }
+    }
   </script>
 </body>
 </html>
