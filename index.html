@@ -1,212 +1,100 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Filmarks 映画リスト</title>
-    <meta name="robots" content="noindex">
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 0 auto;
-            max-width: 1200px;
-            padding: 1rem;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Filmarks 映画リスト</title>
+  <meta name="robots" content="noindex">
 
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .controls select,
-        .controls button {
-            padding: 0.5rem;
-            font-size: 1rem;
-        }
-
-        .grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .card img {
-            width: 100%;
-            height: 300px;
-            /* 高さをそろえたいなら固定 */
-            object-fit: cover;
-            /* 中央を切り出してトリミング */
-            display: block;
-        }
-
-        .card {
-            max-width: 200px;
-            margin: 0 auto;
-        }
-
-        @media (min-width: 1024px) {
-            .grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-
-        @media (min-width: 768px) and (max-width: 1023px) {
-            .grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        @media (max-width: 767px) {
-            .grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .card {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            overflow: hidden;
-            text-align: center;
-            background: #fafafa;
-        }
-
-        .card img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        .card .title {
-            padding: 0.5rem;
-            font-weight: bold;
-        }
-
-        .card .rating {
-            padding: 0.25rem 0;
-            color: #555;
-        }
-
-        .pagination {
-            margin-top: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .pagination button {
-            padding: 0.5rem 1rem;
-        }
-    </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="max-w-6xl mx-auto p-6">
+    <h1 class="text-3xl font-bold text-center text-gray-900 mb-6">Filmarks 映画リスト</h1>
 
-<body>
-    <h1>Filmarks 映画リスト</h1>
-
-    <div class="controls">
-        <label>データ選択:
-            <select id="jsonSelect">
-                <option>読み込み中…</option>
-            </select>
-        </label>
-        <label>ソート:
-            <select id="sortField">
-                <option value="title">タイトル</option>
-                <option value="rating">評価</option>
-            </select>
-        </label>
-        <label>方向:
-            <select id="sortDir">
-                <option value="asc">昇順</option>
-                <option value="desc">降順</option>
-            </select>
-        </label>
-        <label>表示件数:
-            <select id="pageSize">
-                <option value="10">10件</option>
-                <option value="30">30件</option>
-                <option value="50">50件</option>
-            </select>
-        </label>
-        <button id="apply">適用</button>
+    <div class="flex flex-wrap items-center justify-center gap-4 mb-6">
+      <div>
+        <label class="block text-sm font-medium mb-1">ソート</label>
+        <select id="sortField" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="title">タイトル</option>
+          <option value="rating">評価</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">方向</label>
+        <select id="sortDir" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="asc">昇順</option>
+          <option value="desc">降順</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">表示件数</label>
+        <select id="pageSize" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <option value="10">10件</option>
+          <option value="30">30件</option>
+          <option value="50">50件</option>
+        </select>
+      </div>
+      <button id="apply" class="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition">適用</button>
     </div>
 
-    <div id="grid" class="grid"></div>
-    <div class="pagination" id="pagination"></div>
+    <div id="grid" class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
 
-    <script>
-        const owner = 'sz4ljde221';
-        const repo = 'movielist';
-        const dataPath = 'data';
-        let movies = [];
-        let currentPage = 1;
+    <div id="pagination" class="flex flex-wrap justify-center items-center gap-2 mt-6"></div>
+  </div>
 
-        // GitHub APIでdataフォルダ内のJSONファイルリストを取得
-        fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${dataPath}`)
-            .then(res => res.json())
-            .then(files => {
-                const jsonFiles = files
-                    .filter(f => f.type === 'file' && f.name.endsWith('.json'))
-                    .map(f => f.name)
-                    .sort((a, b) => a < b ? 1 : -1); // 新しいファイル順
-                const sel = document.getElementById('jsonSelect');
-                sel.innerHTML = jsonFiles.map(name => `<option value="${name}">${name}</option>`).join('');
-                loadData(jsonFiles[0]);
-            })
-            .catch(err => console.error('GitHub API読み込み失敗', err));
+  <script>
+    let movies = [], currentPage = 1;
+    fetch('data/movies.json')
+      .then(r => r.json())
+      .then(data => { movies = Array.isArray(data) ? data : (data.movies||[]); render(); })
+      .catch(console.error);
+    document.getElementById('apply').onclick = () => { currentPage = 1; render(); };
 
-        document.getElementById('jsonSelect').addEventListener('change', e => {
-            currentPage = 1;
-            loadData(e.target.value);
-        });
-        document.getElementById('apply').addEventListener('click', () => { currentPage = 1; render(); });
+    function render(){
+      const field = document.getElementById('sortField').value;
+      const dir = document.getElementById('sortDir').value;
+      const size = +document.getElementById('pageSize').value;
+      const sorted = movies.slice().sort((a,b)=>{
+        let v1 = field==='rating'?+(a[field]||0): (a[field]||'').toLowerCase();
+        let v2 = field==='rating'?+(b[field]||0): (b[field]||'').toLowerCase();
+        return (v1>v2?1:(v1<v2?-1:0))*(dir==='asc'?1:-1);
+      });
+      const total = sorted.length, pages = Math.ceil(total/size);
+      currentPage = Math.min(currentPage,pages)||1;
+      const start = (currentPage-1)*size;
+      const pageItems = sorted.slice(start,start+size);
 
-        function loadData(filename) {
-            fetch(`${dataPath}/${filename}`)
-                .then(res => res.json())
-                .then(data => {
-                    movies = Array.isArray(data) ? data : (data.movies || []);
-                    render();
-                })
-                .catch(err => console.error(`${filename} 読み込み失敗`, err));
-        }
+      const grid = document.getElementById('grid');
+      grid.innerHTML = pageItems.map(item=>`
+        <div class="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition">
+          <a href="${item.link}" target="_blank">
+            <img loading="lazy" src="${item.image_url}" alt="${item.title}" class="w-full h-48 object-cover">
+          </a>
+          <div class="p-4 flex flex-col h-40">
+            <a href="${item.link}" target="_blank" class="text-lg font-semibold text-gray-900 hover:text-indigo-600 mb-2 truncate">${item.title}</a>
+            <div class="mt-auto text-indigo-500 font-medium">評価: ${item.rating||'-'}</div>
+          </div>
+        </div>
+      `).join('');
 
-        function render() {
-            const field = document.getElementById('sortField').value;
-            const dir = document.getElementById('sortDir').value;
-            const size = parseInt(document.getElementById('pageSize').value);
-            const sorted = movies.slice().sort((a, b) => {
-                let v1 = a[field] ?? '';
-                let v2 = b[field] ?? '';
-                if (field === 'rating') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
-                return (v1 < v2 ? -1 : v1 > v2 ? 1 : 0) * (dir === 'asc' ? 1 : -1);
-            });
-            const total = sorted.length;
-            const pages = Math.ceil(total / size);
-            const start = (currentPage - 1) * size;
-            const pageItems = sorted.slice(start, start + size);
-
-            const grid = document.getElementById('grid');
-            grid.innerHTML = pageItems.map(item => {
-                const img = item.image_url ? `<a href="${item.link}" target="_blank"><img src="${item.image_url}" alt="${item.title}"></a>` : '';
-                const title = `<div class="title">${item.link ? `<a href="${item.link}" target="_blank">${item.title}</a>` : item.title}</div>`;
-                const rating = `<div class="rating">評価: ${item.rating || '-'} </div>`;
-                return `<div class="card">${img}${title}${rating}</div>`;
-            }).join('');
-
-            const pg = document.getElementById('pagination');
-            pg.innerHTML = '';
-            for (let i = 1; i <= pages; i++) {
-                const btn = document.createElement('button');
-                btn.textContent = i;
-                if (i === currentPage) btn.disabled = true;
-                btn.addEventListener('click', () => { currentPage = i; render(); });
-                pg.appendChild(btn);
-            }
-        }
-    </script>
+      const pg = document.getElementById('pagination'); pg.innerHTML='';
+      function pageBtn(i,label){
+        const btn = document.createElement('button');
+        btn.textContent = label||i;
+        btn.className = `px-3 py-1 rounded-md ${i===currentPage? 'bg-indigo-600 text-white':'bg-white text-gray-700 border'}`;
+        if(i!==currentPage) btn.onclick = ()=>{ currentPage=i; render(); };
+        else btn.disabled = true;
+        return btn;
+      }
+      if(pages>1){
+        pg.appendChild(pageBtn(1,'1'));
+        if(currentPage>4) pg.appendChild(Object.assign(document.createElement('span'),{className:'px-2 text-gray-500','textContent':'…'}));
+        for(let i=Math.max(2,currentPage-3);i<=Math.min(pages-1,currentPage+3);i++) pg.appendChild(pageBtn(i));
+        if(currentPage<pages-3) pg.appendChild(Object.assign(document.createElement('span'),{className:'px-2 text-gray-500','textContent':'…'}));
+        if(pages>1) pg.appendChild(pageBtn(pages,'最後'));
+      }
+    }
+  </script>
 </body>
-
 </html>
