@@ -11,13 +11,14 @@
     <h1 class="text-3xl font-bold text-center text-gray-900 mb-6">Filmarks 映画リスト</h1>
 
     <div class="flex flex-wrap items-center justify-center gap-4 mb-6">
-      <!-- JSON選択ドロップダウンを追加 -->
+      <!-- JSON選択 -->
       <div>
         <label class="block text-sm font-medium mb-1">データ選択</label>
         <select id="jsonSelect" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
           <!-- 動的に読み込まれます -->
         </select>
       </div>
+      <!-- ソートフィールド選択 -->
       <div>
         <label class="block text-sm font-medium mb-1">ソート</label>
         <select id="sortField" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
@@ -25,6 +26,7 @@
           <option value="rating">評価</option>
         </select>
       </div>
+      <!-- ソート方向選択 -->
       <div>
         <label class="block text-sm font-medium mb-1">方向</label>
         <select id="sortDir" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
@@ -32,6 +34,7 @@
           <option value="desc">降順</option>
         </select>
       </div>
+      <!-- 表示件数選択 -->
       <div>
         <label class="block text-sm font-medium mb-1">表示件数</label>
         <select id="pageSize" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
@@ -42,64 +45,104 @@
           <option value="100">100件</option>
         </select>
       </div>
+      <!-- 適用ボタン -->
       <button id="apply" class="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition">適用</button>
     </div>
 
+    <!-- 映画カードグリッド -->
     <div id="grid" class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
 
+    <!-- ページネーション -->
     <div id="pagination" class="flex flex-wrap justify-center items-center gap-2 mt-6"></div>
   </div>
 
   <script>
-    let movies = [], currentPage = 1;
-    fetch('data/movies.json')
-      .then(r => r.json())
-      .then(data => { movies = Array.isArray(data) ? data : (data.movies||[]); render(); })
-      .catch(console.error);
-    document.getElementById('apply').onclick = () => { currentPage = 1; render(); };
+    const owner = 'sz4ljde221';
+    const repo  = 'movielist';
+    const dataPath = 'data';
+    let movies = [];
+    let currentPage = 1;
 
-    function render(){
+    // JSONファイル一覧をGitHub APIから取得
+    fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${dataPath}`)
+      .then(res => res.json())
+      .then(files => {
+        const jsonFiles = files
+          .filter(f => f.type === 'file' && f.name.endsWith('.json'))
+          .map(f => f.name)
+          .sort((a, b) => a < b ? 1 : -1);
+        const sel = document.getElementById('jsonSelect');
+        sel.innerHTML = jsonFiles.map(name => `<option value="${name}">${name}</option>`).join('');
+        // 初期ロード
+        loadData(jsonFiles[0]);
+      })
+      .catch(err => console.error('GitHub API読み込み失敗', err));
+
+    // JSON選択時
+    document.getElementById('jsonSelect').addEventListener('change', e => {
+      currentPage = 1;
+      loadData(e.target.value);
+    });
+    // 適用ボタン
+    document.getElementById('apply').addEventListener('click', () => { currentPage = 1; render(); });
+
+    // 指定JSONを読み込み
+    function loadData(filename) {
+      fetch(`${dataPath}/${filename}`)
+        .then(res => res.json())
+        .then(data => {
+          movies = Array.isArray(data) ? data : (data.movies || []);
+          render();
+        })
+        .catch(err => console.error(`${filename}読み込み失敗`, err));
+    }
+
+    // レンダリング関数
+    function render() {
       const field = document.getElementById('sortField').value;
-      const dir = document.getElementById('sortDir').value;
-      const size = +document.getElementById('pageSize').value;
-      const sorted = movies.slice().sort((a,b)=>{
-        let v1 = field==='rating'?+(a[field]||0): (a[field]||'').toLowerCase();
-        let v2 = field==='rating'?+(b[field]||0): (b[field]||'').toLowerCase();
-        return (v1>v2?1:(v1<v2?-1:0))*(dir==='asc'?1:-1);
+      const dir   = document.getElementById('sortDir').value;
+      const size  = +document.getElementById('pageSize').value;
+      // ソート
+      const sorted = movies.slice().sort((a, b) => {
+        let v1 = field === 'rating' ? +(a[field] || 0) : (a[field] || '').toLowerCase();
+        let v2 = field === 'rating' ? +(b[field] || 0) : (b[field] || '').toLowerCase();
+        return (v1 > v2 ? 1 : v1 < v2 ? -1 : 0) * (dir === 'asc' ? 1 : -1);
       });
-      const total = sorted.length, pages = Math.ceil(total/size);
-      currentPage = Math.min(currentPage,pages)||1;
-      const start = (currentPage-1)*size;
-      const pageItems = sorted.slice(start,start+size);
+      const total = sorted.length;
+      const pages = Math.ceil(total / size);
+      currentPage = Math.min(currentPage, pages) || 1;
+      const start = (currentPage - 1) * size;
+      const items = sorted.slice(start, start + size);
 
+      // カード生成
       const grid = document.getElementById('grid');
-      grid.innerHTML = pageItems.map(item=>`
+      grid.innerHTML = items.map(item => `
         <div class="bg-white rounded-lg overflow-hidden shadow hover:shadow-lg transition">
           <a href="${item.link}" target="_blank">
             <img loading="lazy" src="${item.image_url}" alt="${item.title}" class="w-full h-48 object-cover">
           </a>
           <div class="p-4 flex flex-col h-40">
             <a href="${item.link}" target="_blank" class="text-lg font-semibold text-gray-900 hover:text-indigo-600 mb-2 truncate">${item.title}</a>
-            <div class="mt-auto text-indigo-500 font-medium">評価: ${item.rating||'-'}</div>
+            <div class="mt-auto text-indigo-500 font-medium">評価: ${item.rating || '-'}</div>
           </div>
-        </div>
-      `).join('');
+        </div>`).join('');
 
-      const pg = document.getElementById('pagination'); pg.innerHTML='';
-      function pageBtn(i,label){
+      // ページネーション生成
+      const pg = document.getElementById('pagination'); pg.innerHTML = '';
+      function pageBtn(i, label) {
         const btn = document.createElement('button');
-        btn.textContent = label||i;
-        btn.className = `px-3 py-1 rounded-md ${i===currentPage? 'bg-indigo-600 text-white':'bg-white text-gray-700 border'}`;
-        if(i!==currentPage) btn.onclick = ()=>{ currentPage=i; render(); };
+        btn.textContent = label || i;
+        btn.className = `px-3 py-1 rounded-md ${i === currentPage ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-300'}`;
+        if (i !== currentPage) btn.onclick = () => { currentPage = i; render(); };
         else btn.disabled = true;
         return btn;
       }
-      if(pages>1){
-        pg.appendChild(pageBtn(1,'1'));
-        if(currentPage>4) pg.appendChild(Object.assign(document.createElement('span'),{className:'px-2 text-gray-500','textContent':'…'}));
-        for(let i=Math.max(2,currentPage-3);i<=Math.min(pages-1,currentPage+3);i++) pg.appendChild(pageBtn(i));
-        if(currentPage<pages-3) pg.appendChild(Object.assign(document.createElement('span'),{className:'px-2 text-gray-500','textContent':'…'}));
-        if(pages>1) pg.appendChild(pageBtn(pages,'最後'));
+      if (pages > 1) {
+        pg.appendChild(pageBtn(1, '1'));
+        if (currentPage > 4) pg.appendChild(Object.assign(document.createElement('span'), { className: 'px-2 text-gray-500', textContent: '…' }));
+        for (let i = Math.max(2, currentPage - 3); i <= Math.min(pages - 1, currentPage + 3); i++) pg.appendChild(pageBtn(i));
+        if (currentPage < pages - 3) pg.appendChild(Object.assign(document.createElement('span'), { className: 'px-2 text-gray-500', textContent: '…' }));
+        pg.appendChild(pageBtn(pages, '最後'));
       }
     }
   </script>
