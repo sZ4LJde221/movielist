@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Filmarks 映画リスト</title>
-  <meta name="robots" content="noindex">
-
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
@@ -13,6 +11,13 @@
     <h1 class="text-3xl font-bold text-center text-gray-900 mb-6">Filmarks 映画リスト</h1>
 
     <div class="flex flex-wrap items-center justify-center gap-4 mb-6">
+      <!-- JSON選択ドロップダウンを追加 -->
+      <div>
+        <label class="block text-sm font-medium mb-1">データ選択</label>
+        <select id="jsonSelect" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <!-- 動的に読み込まれます -->
+        </select>
+      </div>
       <div>
         <label class="block text-sm font-medium mb-1">ソート</label>
         <select id="sortField" class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400">
@@ -34,7 +39,7 @@
           <option value="30">30件</option>
           <option value="50">50件</option>
           <option value="70">70件</option>
-          <option value="50">100件</option>
+          <option value="100">100件</option>
         </select>
       </div>
       <button id="apply" class="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition">適用</button>
